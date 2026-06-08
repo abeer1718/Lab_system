@@ -1,7 +1,11 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 
-const dbPath = path.join(__dirname, 'lab.db');
+// تحديد مسار قاعدة البيانات بجانب ملف التشغيل exe لضمان استمرارية البيانات
+const dbDir = path.join(process.env.APPDATA || (process.platform === 'darwin' ? process.env.HOME + '/Library/Preferences' : process.env.HOME + "/.local/share"), 'LabSystem');
+if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+const dbPath = path.join(dbDir, 'lab.db');
 
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) console.error('Error opening database:', err);

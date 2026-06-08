@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'screens/tests_screen.dart';   // ← مهم جداً
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // تهيئة قاعدة البيانات للويندوز
+  if (Platform.isWindows || Platform.isLinux) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+  
   runApp(const MyApp());
 }
 
