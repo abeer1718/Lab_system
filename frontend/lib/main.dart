@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+<<<<<<< HEAD
 import 'screens/main_shell.dart';
 import 'screens/login_screen.dart';
 import 'services/api_service.dart';
@@ -6,6 +7,21 @@ import 'services/api_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ApiService.seedAdmin();
+=======
+import 'dart:io';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'screens/tests_screen.dart';   // ← مهم جداً
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // تهيئة قاعدة البيانات للويندوز
+  if (Platform.isWindows || Platform.isLinux) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+  
+>>>>>>> 4206e3521fff64e92ee245ff95be2df62502e99f
   runApp(const MyApp());
 }
 
