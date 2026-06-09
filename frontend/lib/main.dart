@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
-import 'screens/tests_screen.dart';   // ← مهم جداً
+import 'screens/main_shell.dart';
+import 'screens/login_screen.dart';
+import 'services/api_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ApiService.seedAdmin();
   runApp(const MyApp());
 }
 
@@ -11,17 +15,17 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'معمل الفكرة',
+      title: 'معمل الفادي',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF81D4FA), // أزرق فاتح زي ما طلبتي
+          seedColor: const Color(0xFF0277BD),
         ),
         useMaterial3: true,
-        fontFamily: 'Cairo', // لو عندك خط القاهرة
+        fontFamily: 'Cairo',
       ),
-      home: const TestsScreen(),   // ← هنا بنغير الشاشة الرئيسية
+      home: const LoginScreen(),
     );
   }
 }

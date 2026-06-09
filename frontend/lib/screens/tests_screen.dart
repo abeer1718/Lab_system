@@ -55,9 +55,7 @@ class TestsScreen extends StatefulWidget {
 class _TestsScreenState extends State<TestsScreen> {
   List<Map<String, dynamic>> tests = [];
   bool isLoading = true;
-  bool sidebarCollapsed = false;
   String searchQuery = '';
-  String activeNav = 'tests';
   final searchController = TextEditingController();
 
   @override
@@ -296,7 +294,6 @@ class _TestsScreenState extends State<TestsScreen> {
   }
 
   // ─── ديالوج تأكيد الحذف ──────────────────────────────
-  // ─── ديالوج تأكيد الحذف (عرض أصغر) ──────────────────────────────
   Future<void> _deleteTest(int id) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -304,9 +301,9 @@ class _TestsScreenState extends State<TestsScreen> {
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: SizedBox(
-          width: 380,   // ← هنا قللنا العرض
+          width: 380,
           child: Padding(
-            padding: const EdgeInsets.all(24),  // قللنا الـ padding من 28 إلى 24
+            padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -397,27 +394,20 @@ class _TestsScreenState extends State<TestsScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: AppColors.background,
-        body: Row(
+        body: Column(
           children: [
-            _buildSidebar(),
+            _buildTopBar(),
             Expanded(
-              child: Column(
-                children: [
-                  _buildTopBar(),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildControlsBar(),
-                          const SizedBox(height: 20),
-                          _buildTestsTable(),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildControlsBar(),
+                    const SizedBox(height: 20),
+                    _buildTestsTable(),
+                  ],
+                ),
               ),
             ),
           ],
@@ -440,29 +430,28 @@ class _TestsScreenState extends State<TestsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('إدارة الفحوصات', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.primaryDark, fontFamily: 'Cairo')),
-              // Text('${tests.length} فحص مسجل في النظام', style: const TextStyle(fontSize: 12, color: AppColors.textHint, fontFamily: 'Cairo')),
             ],
           ),
           const Spacer(),
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: AppColors.primary,
-            child: const Text('م', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15, fontFamily: 'Cairo')),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text('مدير النظام', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary, fontFamily: 'Cairo')),
-              Text('admin@alfadi-lab.com', style: TextStyle(fontSize: 11, color: AppColors.textHint, fontFamily: 'Cairo')),
-            ],
-          ),
+          // CircleAvatar(
+          //   radius: 20,
+          //   backgroundColor: AppColors.primary,
+          //   child: const Text('م', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15, fontFamily: 'Cairo')),
+          // ),
+          // const SizedBox(width: 12),
+          // Column(
+          //   crossAxisAlignment: CrossAxisAlignment.start,
+          //   children: const [
+          //     Text('مدير النظام', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary, fontFamily: 'Cairo')),
+          //     Text('admin@alfadi-lab.com', style: TextStyle(fontSize: 11, color: AppColors.textHint, fontFamily: 'Cairo')),
+          //   ],
+          // ),
         ],
       ),
     );
   }
 
-  // ─── شريط التحكم (بحث + زر إضافة فقط) ─────────────
+  // ─── شريط التحكم (بحث + زر إضافة) ─────────────
   Widget _buildControlsBar() {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -518,7 +507,7 @@ class _TestsScreenState extends State<TestsScreen> {
     );
   }
 
-  // ─── الجدول بدون عمود التصنيف ─────────────────────
+  // ─── الجدول ─────────────────────
   Widget _buildTestsTable() {
     return Container(
       decoration: BoxDecoration(
@@ -672,117 +661,6 @@ class _TestsScreenState extends State<TestsScreen> {
     );
   }
 
-  // ─── السايدبار ───────────────────────────────────────
-  Widget _buildSidebar() {
-    final navItems = [
-      _NavItem(key: 'reception', icon: Icons.local_hospital_rounded, label: 'الاستقبال'),
-      _NavItem(key: 'tests', icon: Icons.science_rounded, label: 'الفحوصات'),
-      _NavItem(key: 'patients', icon: Icons.people_alt_rounded, label: 'المرضى'),
-      _NavItem(key: 'companies', icon: Icons.business_rounded, label: 'الشركات'),
-      _NavItem(key: 'reports', icon: Icons.bar_chart_rounded, label: 'التقارير'),
-      _NavItem(key: 'settings', icon: Icons.manage_accounts_rounded, label: 'المستخدمين'),
-    ];
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeInOut,
-      width: sidebarCollapsed ? 72 : 230,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [AppColors.primaryDark, AppColors.primary, AppColors.primaryLight], begin: Alignment.topCenter, end: Alignment.bottomCenter),
-        boxShadow: [BoxShadow(color: const Color(0x2501579B), blurRadius: 20, offset: const Offset(4, 0))],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 20),
-            decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white12))),
-            child: Row(
-              mainAxisAlignment: sidebarCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(12), boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 2))]),
-                  child: const Icon(Icons.biotech_rounded, color: Colors.white, size: 22),
-                ),
-                if (!sidebarCollapsed) ...[
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('معمل الفادي', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800, fontFamily: 'Cairo')),
-                        Text('نظام إدارة المعمل', style: TextStyle(color: Colors.white60, fontSize: 11, fontFamily: 'Cairo')),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
-              child: Column(children: navItems.map((item) => _buildNavItem(item)).toList()),
-            ),
-          ),
-          GestureDetector(
-            onTap: () => setState(() => sidebarCollapsed = !sidebarCollapsed),
-            child: Container(
-              margin: const EdgeInsets.all(10),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(10)),
-              child: Icon(
-                sidebarCollapsed ? Icons.chevron_right_rounded : Icons.chevron_left_rounded,
-                color: Colors.white70,
-                size: 22,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavItem(_NavItem item) {
-    final isActive = activeNav == item.key;
-    return GestureDetector(
-      onTap: () => setState(() => activeNav = item.key),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(bottom: 4),
-        padding: EdgeInsets.symmetric(horizontal: sidebarCollapsed ? 0 : 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: isActive ? Colors.white24 : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: isActive ? [const BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))] : null,
-        ),
-        child: Row(
-          mainAxisAlignment: sidebarCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
-          children: [
-            Icon(item.icon, color: isActive ? Colors.white : Colors.white60, size: 22),
-            if (!sidebarCollapsed) ...[
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  item.label,
-                  style: TextStyle(
-                    color: isActive ? Colors.white : Colors.white70,
-                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                    fontSize: 14,
-                    fontFamily: 'Cairo',
-                  ),
-                ),
-              ),
-              if (isActive)
-                Container(width: 6, height: 6, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
   // ─── هيلبرز ──────────────────────────────────────────
   Widget _buildFormField({
     required TextEditingController controller,
@@ -866,11 +744,4 @@ class _ActionButton extends StatelessWidget {
           ),
         ),
       );
-}
-
-class _NavItem {
-  final String key;
-  final IconData icon;
-  final String label;
-  const _NavItem({required this.key, required this.icon, required this.label});
 }
