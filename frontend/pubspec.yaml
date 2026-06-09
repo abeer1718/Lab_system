@@ -34,6 +34,7 @@ dependencies:
   fluttertoast: ^8.2.8
   sqflite: ^2.3.3+1
   sqflite_common_ffi: ^2.3.3  # للـ Desktop (Windows/Linux/Mac)
+  sembast_sqflite: ^2.2.1 # Add this line
   path: ^1.9.0
   sembast: ^3.7.2
   sembast_web: ^2.4.0

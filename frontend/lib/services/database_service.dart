@@ -1,14 +1,47 @@
 import 'package:sembast/sembast.dart';
-import 'package:sembast_web/sembast_web.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart';
+import 'dart:io'; // Required for Directory and platform checks
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart' hide Database, DatabaseFactory;
+import 'package:sembast_sqflite/sembast_sqflite.dart';
+import 'package:sembast_web/sembast_web.dart';
 
 class DatabaseService {
-  static Database? _db;
+  static Database? _db; // Made nullable
+  static const String dbName = 'alfadi_lab.db';
 
   static Future<Database> get database async {
     if (_db != null) return _db!;
-    _db = await databaseFactoryWeb.openDatabase('alfadi_lab.db');
+
+    String dbPath;
+    DatabaseFactory factory;
+
+    if (kIsWeb) {
+      // على الويب نستخدم مصنع الويب
+      factory = databaseFactoryWeb;
+      dbPath = dbName;
+    } else {
+      // For Flutter/VM (mobile, desktop)
+      // تهيئة مكتبة FFI لأنظمة الويندوز واللينكس
+      if (Platform.isWindows || Platform.isLinux) {
+        sqfliteFfiInit();
+      }
+      factory = getDatabaseFactorySqflite(databaseFactoryFfi);
+
+      if (Platform.isWindows) {
+        // الحصول على مسار المجلد الذي يحتوي على ملف exe
+        final String exePath = File(Platform.resolvedExecutable).parent.path;
+        dbPath = join(exePath, dbName);
+      } else {
+        final appDocumentDir = await getApplicationDocumentsDirectory();
+        dbPath = join(appDocumentDir.path, dbName);
+      }
+    }
+
+    _db = await factory.openDatabase(dbPath);
     return _db!;
   }
 
