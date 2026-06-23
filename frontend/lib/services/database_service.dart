@@ -1,16 +1,17 @@
 import 'package:sembast/sembast.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
-import 'dart:io'; // Required for Directory and platform checks
+import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:sqflite_common_ffi/sqflite_ffi.dart' hide Database, DatabaseFactory;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart'
+    hide Database, DatabaseFactory;
 import 'package:sembast_sqflite/sembast_sqflite.dart';
 import 'package:sembast_web/sembast_web.dart';
 
 class DatabaseService {
-  static Database? _db; // Made nullable
+  static Database? _db;
   static const String dbName = 'alfadi_lab.db';
 
   static Future<Database> get database async {
@@ -20,19 +21,15 @@ class DatabaseService {
     DatabaseFactory factory;
 
     if (kIsWeb) {
-      // على الويب نستخدم مصنع الويب
       factory = databaseFactoryWeb;
       dbPath = dbName;
     } else {
-      // For Flutter/VM (mobile, desktop)
-      // تهيئة مكتبة FFI لأنظمة الويندوز واللينكس
       if (Platform.isWindows || Platform.isLinux) {
         sqfliteFfiInit();
       }
       factory = getDatabaseFactorySqflite(databaseFactoryFfi);
 
       if (Platform.isWindows) {
-        // الحصول على مسار المجلد الذي يحتوي على ملف exe
         final String exePath = File(Platform.resolvedExecutable).parent.path;
         dbPath = join(exePath, dbName);
       } else {
@@ -111,14 +108,15 @@ class DatabaseService {
     return records.map((r) => {'id': r.key, ...r.value}).toList();
   }
 
-  static Future<List<Map<String, dynamic>>> searchPatients(String query) async {
-    final db = await database;
+  static Future<List<Map<String, dynamic>>> searchPatients(
+      String query) async {
     final all = await getPatients();
     final q = query.toLowerCase();
-    return all.where((p) =>
-      p['name'].toString().toLowerCase().contains(q) ||
-      (p['phone'] ?? '').toString().contains(q)
-    ).toList();
+    return all
+        .where((p) =>
+            p['name'].toString().toLowerCase().contains(q) ||
+            (p['phone'] ?? '').toString().contains(q))
+        .toList();
   }
 
   static Future<int> addPatient(Map<String, dynamic> data) async {
@@ -150,7 +148,8 @@ class DatabaseService {
     return records.map((r) => {'id': r.key, ...r.value}).toList();
   }
 
-  static Future<List<Map<String, dynamic>>> getVisitsByPatient(int patientId) async {
+  static Future<List<Map<String, dynamic>>> getVisitsByPatient(
+      int patientId) async {
     final db = await database;
     final records = await _visits.find(db,
         finder: Finder(
@@ -184,11 +183,33 @@ class DatabaseService {
   // ══════════════════════════════════════════
   static final _visitTests = intMapStoreFactory.store('visit_tests');
 
-  static Future<List<Map<String, dynamic>>> getVisitTests(int visitId) async {
+  /// جيب فحوصات الزيارة مع إثراءها بـ unit و category من جدول الفحوصات
+  static Future<List<Map<String, dynamic>>> getVisitTests(
+      int visitId) async {
     final db = await database;
     final records = await _visitTests.find(db,
         finder: Finder(filter: Filter.equals('visit_id', visitId)));
-    return records.map((r) => {'id': r.key, ...r.value}).toList();
+
+    final result = <Map<String, dynamic>>[];
+    for (final r in records) {
+      final vt = {'id': r.key, ...r.value};
+
+      // جيب بيانات الفحص الأصلي عشان تاخد unit و category
+      final testId = vt['test_id'] as int?;
+      if (testId != null) {
+        final testRecord = await _tests.record(testId).get(db);
+        if (testRecord != null) {
+          // unit: لو محفوظة في visit_tests خد منها، لو لأ خد من tests
+          vt['unit'] = (vt['unit'] as String? ?? '').isNotEmpty
+              ? vt['unit']
+              : (testRecord['unit'] ?? '');
+          // category دايماً من جدول الفحوصات
+          vt['category'] = testRecord['category'] ?? 'أخرى';
+        }
+      }
+      result.add(vt);
+    }
+    return result;
   }
 
   static Future<List<Map<String, dynamic>>> getPendingResults() async {
@@ -208,12 +229,18 @@ class DatabaseService {
     return await _visitTests.add(db, Map<String, dynamic>.from(data));
   }
 
-  static Future<void> updateVisitTestResult(int id, String result) async {
+  /// تحديث النتيجة مع حفظ الوحدة
+  static Future<void> updateVisitTestResult(
+      int id, String result, {String unit = ''}) async {
     final db = await database;
-    await _visitTests.record(id).update(db, {
+    final updateData = <String, dynamic>{
       'result': result,
       'result_date': DateTime.now().toIso8601String(),
-    });
+    };
+    if (unit.isNotEmpty) {
+      updateData['unit'] = unit;
+    }
+    await _visitTests.record(id).update(db, updateData);
   }
 
   static Future<List<Map<String, dynamic>>> getAllVisitTests() async {
@@ -289,5 +316,99 @@ class DatabaseService {
   static Future<void> deleteUser(int id) async {
     final db = await database;
     await _users.record(id).delete(db);
+  }
+
+  // ══════════════════════════════════════════
+  // SHIFTS
+  // ══════════════════════════════════════════
+  static final _shifts = intMapStoreFactory.store('shifts');
+
+  static Future<List<Map<String, dynamic>>> getShifts() async {
+    final db = await database;
+    final records = await _shifts.find(db,
+        finder: Finder(sortOrders: [SortOrder('start_time')]));
+    return records.map((r) => {'id': r.key, ...r.value}).toList();
+  }
+
+  static Future<int> addShift(Map<String, dynamic> data) async {
+    final db = await database;
+    return await _shifts.add(db, Map<String, dynamic>.from(data));
+  }
+
+  static Future<void> updateShift(int id, Map<String, dynamic> data) async {
+    final db = await database;
+    await _shifts.record(id).update(db, Map<String, dynamic>.from(data));
+  }
+
+  static Future<void> deleteShift(int id) async {
+    final db = await database;
+    await _shifts.record(id).delete(db);
+  }
+
+  static Future<Map<String, dynamic>?> getShiftForTime(
+      String timeStr) async {
+    final shifts = await getShifts();
+    for (final s in shifts) {
+      final start = s['start_time'] as String;
+      final end   = s['end_time']   as String;
+      if (_timeInRange(timeStr, start, end)) return s;
+    }
+    return null;
+  }
+
+  static bool _timeInRange(String time, String start, String end) {
+    int toMinutes(String t) {
+      final parts = t.split(':');
+      return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    }
+
+    final t = toMinutes(time);
+    final s = toMinutes(start);
+    final e = toMinutes(end);
+    if (s <= e) return t >= s && t < e;
+    return t >= s || t < e;
+  }
+
+  // ══════════════════════════════════════════
+  // SHIFT SESSIONS
+  // ══════════════════════════════════════════
+  static final _shiftSessions = intMapStoreFactory.store('shift_sessions');
+
+  static Future<int> openShiftSession(Map<String, dynamic> data) async {
+    final db = await database;
+    return await _shiftSessions.add(db, Map<String, dynamic>.from(data));
+  }
+
+  static Future<void> closeShiftSession(int id, String endTime) async {
+    final db = await database;
+    await _shiftSessions.record(id).update(db, {
+      'end_time': endTime,
+      'status': 'closed',
+    });
+  }
+
+  static Future<Map<String, dynamic>?> getOpenSession(int userId) async {
+    final db = await database;
+    final records = await _shiftSessions.find(db,
+        finder: Finder(
+          filter: Filter.and([
+            Filter.equals('user_id', userId),
+            Filter.equals('status', 'open'),
+          ]),
+        ));
+    if (records.isEmpty) return null;
+    final r = records.first;
+    return {'id': r.key, ...r.value};
+  }
+
+  static Future<List<Map<String, dynamic>>> getVisitsBySession(
+      int sessionId) async {
+    final db = await database;
+    final records = await _visits.find(db,
+        finder: Finder(
+          filter: Filter.equals('session_id', sessionId),
+          sortOrders: [SortOrder('date', false)],
+        ));
+    return records.map((r) => {'id': r.key, ...r.value}).toList();
   }
 }

@@ -14,9 +14,19 @@ const _error = Color(0xFFEF4444);
 
 class ReceptionScreen extends StatefulWidget {
   final Map<String, dynamic> currentUser;
-  const ReceptionScreen({super.key, required this.currentUser});
+  final Map<String, dynamic>? openSession;   // الوردية المفتوحة
+  final VoidCallback? onSessionChanged;       // callback لتحديث الـ session
+
+  const ReceptionScreen({
+    super.key,
+    required this.currentUser,
+    this.openSession,
+    this.onSessionChanged,
+  });
+
   @override
   State<ReceptionScreen> createState() => _ReceptionScreenState();
+
 }
 
 class _ReceptionScreenState extends State<ReceptionScreen> {
@@ -39,6 +49,7 @@ class _ReceptionScreenState extends State<ReceptionScreen> {
   final _thirdNameCtrl = TextEditingController();
   final _fourthNameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _cardNumberCtrl = TextEditingController();   
   String _gender = 'ذكر';
   int? _selectedCompanyId;
 
@@ -57,6 +68,7 @@ class _ReceptionScreenState extends State<ReceptionScreen> {
     _thirdNameCtrl.dispose();
     _fourthNameCtrl.dispose();
     _phoneCtrl.dispose();
+    _cardNumberCtrl.dispose();        
     super.dispose();
   }
 
@@ -97,19 +109,71 @@ class _ReceptionScreenState extends State<ReceptionScreen> {
 
   double get _total => _subtotal - _discount;
 
-  Future<void> _confirmVisit() async {
-    if (_selectedPatient == null || _selectedTests.isEmpty) return;
-    final visitId = await ApiService.addVisit({
-      'patient_id': _selectedPatient!['id'],
-      'patient_name': _selectedPatient!['name'],
-      'date': DateTime.now().toIso8601String(),
-      'payment_method': _paymentMethod,
-      'subtotal': _subtotal,
-      'discount': _discount,
-      'total': _total,
-      'company_id': _selectedPatient!['company_id'],
-      'created_by': widget.currentUser['id'],
-    });
+Future<void> _confirmVisit() async {
+  // ── تحقق من وجود وردية مفتوحة ──────────────
+  if (widget.openSession == null) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: SizedBox(
+            width: 380,
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 68, height: 68,
+                  decoration: BoxDecoration(color: const Color(0xFFFFF8E1), shape: BoxShape.circle),
+                  child: const Icon(Icons.alarm_off_rounded, color: Color(0xFFF59E0B), size: 34),
+                ),
+                const SizedBox(height: 18),
+                const Text('لا توجد وردية مفتوحة', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, fontFamily: 'Cairo', color: Color(0xFF263238))),
+                const SizedBox(height: 10),
+                const Text(
+                  'يجب فتح وردية أولاً قبل تسجيل أي زيارة.\nاضغط على زر "بداية وردية" في القائمة الجانبية.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontFamily: 'Cairo', fontSize: 13, color: Color(0xFF546E7A), height: 1.6),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  label: const Text('حسناً', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w700)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF59E0B),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+    return; // وقف التنفيذ
+  }
+
+  // ── بقية الكود الأصلي ──
+  if (_selectedPatient == null || _selectedTests.isEmpty) return;
+  final visitId = await ApiService.addVisit({
+    'patient_id': _selectedPatient!['id'],
+    'patient_name': _selectedPatient!['name'],
+    'patient_gender': _selectedPatient!['gender'],   
+    'date': DateTime.now().toIso8601String(),
+    'payment_method': _total > 0 ? _paymentMethod : 'company',   // ← مهم    'subtotal': _subtotal,
+    'discount': _discount,
+    'total': _total,
+    'paid': _total,           // ← طريقة الدفع = دافع كامل
+    'company_id': _selectedPatient!['company_id'],
+    'created_by': widget.currentUser['id'],
+    'session_id': widget.openSession!['id'],  // ← ربط بالوردية
+  });
     for (final t in _selectedTests) {
       await ApiService.addVisitTest({
         'visit_id': visitId,
@@ -136,6 +200,7 @@ class _ReceptionScreenState extends State<ReceptionScreen> {
       _thirdNameCtrl.clear();
       _fourthNameCtrl.clear();
       _phoneCtrl.clear();
+      _cardNumberCtrl.clear();        
       _paymentMethod = 'cash';
       _selectedCompanyId = null;
       _gender = 'ذكر';
@@ -674,58 +739,85 @@ class _ReceptionScreenState extends State<ReceptionScreen> {
               ]),
               const SizedBox(height: 16),
 
-              // ── الشركة ──
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('الشركة (اختياري)',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: _textSecondary,
-                          fontFamily: 'Cairo')),
-                  const SizedBox(height: 7),
-                  DropdownButtonFormField<int?>(
-                    value: _selectedCompanyId,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: _bg,
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                              color: _divider, width: 1.5)),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                              color: _divider, width: 1.5)),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                    ),
-                    style: const TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 14,
-                        color: _textPrimary),
-                    hint: const Text('بدون شركة',
-                        style: TextStyle(
-                            fontFamily: 'Cairo',
-                            color: _textHint,
-                            fontSize: 13)),
-                    items: [
-                      const DropdownMenuItem(
-                          value: null,
-                          child: Text('بدون شركة',
-                              style: TextStyle(fontFamily: 'Cairo'))),
-                      ..._companies.map((c) => DropdownMenuItem(
-                          value: c['id'] as int,
-                          child: Text(c['name'],
-                              style: const TextStyle(
-                                  fontFamily: 'Cairo')))),
-                    ],
-                    onChanged: (v) =>
-                        setState(() => _selectedCompanyId = v),
-                  ),
-                ],
-              ),
+// ── الشركة + رقم البطاقة ──
+Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    const Text('الشركة (اختياري)',
+        style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: _textSecondary,
+            fontFamily: 'Cairo')),
+    const SizedBox(height: 7),
+    DropdownButtonFormField<int?>(
+      value: _selectedCompanyId,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: _bg,
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: _divider, width: 1.5)),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: _divider, width: 1.5)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      ),
+      style: const TextStyle(fontFamily: 'Cairo', fontSize: 14, color: _textPrimary),
+      hint: const Text('بدون شركة', style: TextStyle(fontFamily: 'Cairo', color: _textHint)),
+      items: [
+        const DropdownMenuItem(value: null, child: Text('بدون شركة')),
+        ..._companies.map((c) => DropdownMenuItem(
+              value: c['id'] as int,
+              child: Text(c['name'], style: const TextStyle(fontFamily: 'Cairo')),
+            )),
+      ],
+      onChanged: (v) {
+        setState(() {
+          _selectedCompanyId = v;
+          if (v == null) _cardNumberCtrl.clear(); // تنظيف الحقل لو مافيش شركة
+        });
+      },
+    ),
+
+    // حقل رقم البطاقة - يظهر فقط لو مختار شركة
+    if (_selectedCompanyId != null) ...[
+      const SizedBox(height: 16),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('رقم البطاقة ',
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _textSecondary,
+                  fontFamily: 'Cairo')),
+          const SizedBox(height: 7),
+          TextFormField(
+            controller: _cardNumberCtrl,
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'رقم البطاقة مطلوب عند اختيار شركة';
+              }
+              return null;
+            },
+            style: const TextStyle(fontFamily: 'Cairo', fontSize: 14),
+            decoration: InputDecoration(
+              hintText: 'أدخل رقم البطاقة',
+              hintStyle: const TextStyle(fontFamily: 'Cairo', color: _textHint),
+              prefixIcon: const Icon(Icons.credit_card_outlined, color: _textHint, size: 20),
+              filled: true,
+              fillColor: _bg,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _divider, width: 1.5)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _primary, width: 2)),
+              errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _error, width: 1.5)),
+            ),
+          ),
+        ],
+      ),
+    ],
+  ],
+),
               const SizedBox(height: 24),
 
               // ── Submit ──
@@ -735,17 +827,18 @@ class _ReceptionScreenState extends State<ReceptionScreen> {
                     if (!_patFormKey.currentState!.validate()) return;
                     final fullName =
                         '${_firstNameCtrl.text.trim()} ${_secondNameCtrl.text.trim()} ${_thirdNameCtrl.text.trim()} ${_fourthNameCtrl.text.trim()}';
-                    final res = await ApiService.addPatient({
-                      'name': fullName,
-                      'first_name': _firstNameCtrl.text.trim(),
-                      'second_name': _secondNameCtrl.text.trim(),
-                      'third_name': _thirdNameCtrl.text.trim(),
-                      'fourth_name': _fourthNameCtrl.text.trim(),
-                      'phone': _phoneCtrl.text.trim(),
-                      'gender': _gender,
-                      'company_id': _selectedCompanyId,
-                      'created_at': DateTime.now().toIso8601String(),
-                    });
+final res = await ApiService.addPatient({
+  'name': fullName,
+  'first_name': _firstNameCtrl.text.trim(),
+  'second_name': _secondNameCtrl.text.trim(),
+  'third_name': _thirdNameCtrl.text.trim(),
+  'fourth_name': _fourthNameCtrl.text.trim(),
+  'phone': _phoneCtrl.text.trim(),
+  'gender': _gender,
+  'company_id': _selectedCompanyId,
+  'card_number': _selectedCompanyId != null ? _cardNumberCtrl.text.trim() : null,   // ← أضف هذا السطر
+  'created_at': DateTime.now().toIso8601String(),
+});
                     final patient = await ApiService.getPatientById(
                         res['id'] as int);
                     if (patient != null) {
@@ -942,7 +1035,7 @@ class _ReceptionScreenState extends State<ReceptionScreen> {
       ('bank',   'بنكك',    Icons.account_balance_outlined),
       ('fwry',   'فوري',    Icons.account_balance_outlined),
       ('okash',  'اوكاش',   Icons.account_balance_outlined),
-      ('mycash', 'ماي كاش', Icons.phone_iphone_outlined),
+      ('mycash', 'ماي كاشي', Icons.phone_iphone_outlined),
     ];
     return Column(children: [
       _card(
@@ -1058,58 +1151,90 @@ class _ReceptionScreenState extends State<ReceptionScreen> {
           ),
           const SizedBox(height: 20),
 
-          // ── طريقة الدفع ──
-          const Text('طريقة الدفع',
-              style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontFamily: 'Cairo',
-                  color: _textPrimary)),
-          const SizedBox(height: 10),
-          Row(
-            children: methods.map((m) {
-              final isSelected = _paymentMethod == m.$1;
-              return Expanded(
-                  child: Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: GestureDetector(
-                  onTap: () =>
-                      setState(() => _paymentMethod = m.$1),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFFE3F2FD)
-                          : _bg,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color:
-                              isSelected ? _primary : _divider,
-                          width: isSelected ? 2 : 1.5),
+          // ── طريقة الدفع (تظهر فقط لو الإجمالي > 0) ──
+          if (_total > 0) ...[
+            const Text('طريقة الدفع',
+                style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontFamily: 'Cairo',
+                    color: _textPrimary)),
+            const SizedBox(height: 10),
+            Row(
+              children: methods.map((m) {
+                final isSelected = _paymentMethod == m.$1;
+                return Expanded(
+                    child: Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: GestureDetector(
+                    onTap: () =>
+                        setState(() => _paymentMethod = m.$1),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFFE3F2FD)
+                            : _bg,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color:
+                                isSelected ? _primary : _divider,
+                            width: isSelected ? 2 : 1.5),
+                      ),
+                      child: Column(children: [
+                        Icon(m.$3,
+                            color: isSelected
+                                ? _primary
+                                : _textHint,
+                            size: 22),
+                        const SizedBox(height: 4),
+                        Text(m.$2,
+                            style: TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: isSelected
+                                    ? _primary
+                                    : _textSecondary)),
+                      ]),
                     ),
-                    child: Column(children: [
-                      Icon(m.$3,
-                          color: isSelected
-                              ? _primary
-                              : _textHint,
-                          size: 22),
-                      const SizedBox(height: 4),
-                      Text(m.$2,
-                          style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: isSelected
-                                  ? _primary
-                                  : _textSecondary)),
-                    ]),
                   ),
-                ),
-              ));
-            }).toList(),
-          ),
-          const SizedBox(height: 20),
+                ));
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+          ] else ...[
+            // رسالة عندما يكون الإجمالي صفر
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F5E9),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF2E7D32), width: 1),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.verified_rounded, color: Color(0xFF2E7D32), size: 28),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text('تغطية كاملة من الشركة',
+                            style: TextStyle(
+                                fontFamily: 'Cairo',
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF2E7D32))),
+
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
 
           // ── تأكيد ──
           SizedBox(
@@ -1238,7 +1363,7 @@ class _ReceptionScreenState extends State<ReceptionScreen> {
               if (v == null || v.trim().isEmpty)
                 return 'رقم الهاتف مطلوب';
               if (v.trim().length != 10)
-                return 'يجب أن يكون 10 أرقام بالضبط';
+                return 'يجب أن يكون 10 أرقام ';
               return null;
             },
             decoration: InputDecoration(
