@@ -619,7 +619,7 @@ ${payBlock('ماي كاش', countMycash, totalMycash, '#0097A7')}
                 const SizedBox(width: 12),
                 const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('معمل الفادي', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800, fontFamily: 'Cairo')),
-                  Text('نظام إدارة المعمل', style: TextStyle(color: Colors.white60, fontSize: 11, fontFamily: 'Cairo')),
+                  // Text('نظام إدارة المعمل', style: TextStyle(color: Colors.white60, fontSize: 11, fontFamily: 'Cairo')),
                 ])),
               ],
             ],
